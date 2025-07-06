@@ -6,41 +6,18 @@ Handles storing and retrieving articles with deduplication
 
 import os
 import sys
-import ssl
-import urllib3
 from datetime import datetime, timezone
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError, PyMongoError
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Disable SSL warnings for Streamlit Cloud compatibility
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-# Create SSL context for Streamlit Cloud compatibility
-def create_ssl_context():
-    """Create SSL context that works with Streamlit Cloud"""
-    try:
-        # Create SSL context with more permissive settings
-        context = ssl.create_default_context()
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-        
-        # Additional settings for compatibility
-        context.set_ciphers('DEFAULT@SECLEVEL=1')
-        context.options |= ssl.OP_LEGACY_SERVER_CONNECT
-        
-        return context
-    except Exception as e:
-        print(f"⚠️ Could not create custom SSL context: {e}")
-        return None
-
 # Load environment variables from config folder
 load_dotenv(Path(__file__).parent.parent / 'config' / '.env')
 
 class NewsDatabase:
     def __init__(self, mongo_uri_override=None):
-        """Initialize MongoDB connection"""
+        """Initialize MongoDB connection with modern TLS options"""
         # Use override URI if provided (for Streamlit Cloud)
         if mongo_uri_override:
             self.mongo_uri = mongo_uri_override
@@ -50,371 +27,186 @@ class NewsDatabase:
         if not self.mongo_uri:
             raise ValueError("MONGO_URI environment variable is required")
         
-        # Detect if running in Streamlit Cloud
-        is_streamlit_cloud = os.getenv('STREAMLIT_SHARING_MODE') is not None or 'streamlit' in str(os.getenv('HOME', ''))
-        
         try:
-            # Streamlit Cloud optimized connection
-            if is_streamlit_cloud:
-                print("🔐 Attempting MongoDB connection optimized for Streamlit Cloud...")
-                
-                # Try with custom SSL context first
-                ssl_context = create_ssl_context()
-                if ssl_context:
-                    try:
-                        streamlit_options = {
-                            'ssl': True,
-                            'ssl_context': ssl_context,
-                            'serverSelectionTimeoutMS': 30000,
-                            'socketTimeoutMS': 60000,
-                            'connectTimeoutMS': 30000,
-                            'maxPoolSize': 1,
-                            'retryWrites': True,
-                            'w': 'majority'
-                        }
-                        
-                        self.client = MongoClient(self.mongo_uri, **streamlit_options)
-                        self.db = self.client['ai_news']
-                        self.collection = self.db['articles']
-                        
-                        # Test the connection
-                        self.client.admin.command('ping')
-                        print("✅ Connected to MongoDB Atlas (Streamlit Cloud with custom SSL)")
-                        
-                    except Exception as ssl_error:
-                        print(f"⚠️ Custom SSL context failed: {ssl_error}")
-                        # Fall back to TLS options
-                        streamlit_options = {
-                            'tls': True,
-                            'tlsAllowInvalidCertificates': True,
-                            'tlsAllowInvalidHostnames': True,
-                            'tlsInsecure': True,
-                            'serverSelectionTimeoutMS': 30000,
-                            'socketTimeoutMS': 60000,
-                            'connectTimeoutMS': 30000,
-                            'maxPoolSize': 1,
-                            'retryWrites': True,
-                            'w': 'majority'
-                        }
-                        
-                        self.client = MongoClient(self.mongo_uri, **streamlit_options)
-                        self.db = self.client['ai_news']
-                        self.collection = self.db['articles']
-                        
-                        # Test the connection
-                        self.client.admin.command('ping')
-                        print("✅ Connected to MongoDB Atlas (Streamlit Cloud TLS fallback)")
-                
-                else:
-                    # No custom SSL context, use TLS options directly
-                    streamlit_options = {
-                        'tls': True,
-                        'tlsAllowInvalidCertificates': True,
-                        'tlsAllowInvalidHostnames': True,
-                        'tlsInsecure': True,
-                        'serverSelectionTimeoutMS': 30000,
-                        'socketTimeoutMS': 60000,
-                        'connectTimeoutMS': 30000,
-                        'maxPoolSize': 1,
-                        'retryWrites': True,
-                        'w': 'majority'
-                    }
-                    
-                    self.client = MongoClient(self.mongo_uri, **streamlit_options)
-                    self.db = self.client['ai_news']
-                    self.collection = self.db['articles']
-                    
-                    # Test the connection
-                    self.client.admin.command('ping')
-                    print("✅ Connected to MongoDB Atlas (Streamlit Cloud optimized)")
-                
-            else:
-                # Local development connection
-                print("🔐 Attempting MongoDB connection with SSL configuration...")
-                ssl_options = {
-                    'ssl': True,
-                    'ssl_cert_reqs': ssl.CERT_NONE,
-                    'ssl_match_hostname': False,
-                    'serverSelectionTimeoutMS': 5000,
-                    'socketTimeoutMS': 10000,
-                    'connectTimeoutMS': 10000,
-                    'maxPoolSize': 10,
-                    'retryWrites': True
-                }
-                
-                self.client = MongoClient(self.mongo_uri, **ssl_options)
-                self.db = self.client['ai_news']
-                self.collection = self.db['articles']
-                
-                # Test the connection
-                self.client.admin.command('ping')
-                print("✅ Connected to MongoDB Atlas")
+            # Modern MongoDB connection with TLS settings for Streamlit Cloud
+            connection_options = {
+                'tls': True,
+                'tlsAllowInvalidCertificates': True,
+                'tlsAllowInvalidHostnames': True,
+                'serverSelectionTimeoutMS': 30000,
+                'socketTimeoutMS': 60000,
+                'connectTimeoutMS': 30000,
+                'maxPoolSize': 1,
+                'retryWrites': True,
+                'w': 'majority'
+            }
+            
+            print("🔐 Connecting to MongoDB Atlas with modern TLS options...")
+            self.client = MongoClient(self.mongo_uri, **connection_options)
+            self.db = self.client['ai_news']
+            self.collection = self.db['articles']
+            
+            # Test the connection
+            self.client.admin.command('ping')
+            print("✅ Connected to MongoDB Atlas successfully")
             
             # Create indexes for better performance and deduplication
             try:
                 self.collection.create_index("url", unique=True)
                 self.collection.create_index("scraped_at")
                 self.collection.create_index("type_of_ai_tool")
+                print("✅ Database indexes created successfully")
             except Exception as index_error:
                 print(f"⚠️ Could not create indexes: {index_error}")
                 
         except Exception as e:
-            print(f"⚠️ Primary connection attempt failed: {e}")
-            print("🔄 Trying fallback connection methods...")
-            
-            # Fallback methods for different environments
-            fallback_methods = [
-                {
-                    'name': 'Streamlit Cloud Fallback 1',
-                    'options': {
-                        'ssl': False,
-                        'tls': True,
-                        'tlsAllowInvalidCertificates': True,
-                        'tlsAllowInvalidHostnames': True,
-                        'serverSelectionTimeoutMS': 45000,
-                        'socketTimeoutMS': 90000,
-                        'connectTimeoutMS': 45000,
-                        'maxPoolSize': 1,
-                        'retryWrites': True
-                    }
-                },
-                {
-                    'name': 'Streamlit Cloud Fallback 2',
-                    'options': {
-                        'tls': True,
-                        'tlsAllowInvalidCertificates': True,
-                        'tlsAllowInvalidHostnames': True,
-                        'tlsInsecure': True,
-                        'ssl_cert_reqs': ssl.CERT_NONE,
-                        'ssl_match_hostname': False,
-                        'serverSelectionTimeoutMS': 60000,
-                        'socketTimeoutMS': 120000,
-                        'connectTimeoutMS': 60000,
-                        'maxPoolSize': 1,
-                        'retryWrites': True
-                    }
-                },
-                {
-                    'name': 'Minimal Connection',
-                    'options': {
-                        'serverSelectionTimeoutMS': 60000,
-                        'socketTimeoutMS': 120000,
-                        'connectTimeoutMS': 60000,
-                        'maxPoolSize': 1,
-                        'retryWrites': True
-                    }
-                },
-                {
-                    'name': 'Legacy SSL',
-                    'options': {
-                        'ssl': True,
-                        'ssl_cert_reqs': ssl.CERT_NONE,
-                        'ssl_match_hostname': False,
-                        'ssl_ca_certs': None,
-                        'serverSelectionTimeoutMS': 60000,
-                        'socketTimeoutMS': 120000,
-                        'connectTimeoutMS': 60000,
-                        'maxPoolSize': 1,
-                        'retryWrites': True
-                    }
-                }
-            ]
-            
-            connection_successful = False
-            for method in fallback_methods:
-                try:
-                    print(f"🔐 Attempting {method['name']}...")
-                    self.client = MongoClient(self.mongo_uri, **method['options'])
-                    self.db = self.client['ai_news']
-                    self.collection = self.db['articles']
-                    
-                    # Test the connection
-                    self.client.admin.command('ping')
-                    print(f"✅ Connected to MongoDB Atlas ({method['name']})")
-                    connection_successful = True
-                    break
-                    
-                except Exception as fallback_error:
-                    print(f"   ❌ {method['name']} failed: {fallback_error}")
-                    continue
-            
-            if not connection_successful:
-                print(f"❌ All connection attempts failed")
-                print("\n💡 Streamlit Cloud SSL Troubleshooting:")
-                print("   1. This error is common in Streamlit Cloud due to SSL/TLS differences")
-                print("   2. Try updating your MongoDB Atlas cluster to the latest version")
-                print("   3. Check if your cluster is using TLS 1.2+ (required)")
-                print("   4. Verify your connection string format")
-                print("   5. Consider using a different MongoDB hosting provider if issues persist")
-                
-                # Create a more informative error for Streamlit Cloud
-                error_message = f"""
-                Failed to connect to MongoDB Atlas from Streamlit Cloud.
-                
-                This is likely due to SSL/TLS compatibility issues between Streamlit Cloud's 
-                Python environment and your MongoDB Atlas cluster.
-                
-                Original error: {str(e)}
-                
-                Solutions:
-                1. Update your MongoDB Atlas cluster to the latest version
-                2. Ensure your cluster uses TLS 1.2+
-                3. Try a different MongoDB hosting provider
-                4. Contact Streamlit Cloud support if the issue persists
-                """
-                
-                raise ConnectionError(error_message)
+            print(f"❌ MongoDB connection failed: {e}")
+            raise Exception(f"Failed to connect to MongoDB Atlas from Streamlit Cloud.\n\nThis is likely due to SSL/TLS compatibility issues between Streamlit Cloud's \nPython environment and your MongoDB Atlas cluster.\n\nOriginal error: {str(e)}\n\nSolutions:\n1. Update your MongoDB Atlas cluster to the latest version\n2. Ensure your cluster uses TLS 1.2+\n3. Try a different MongoDB hosting provider\n4. Contact Streamlit Cloud support if the issue persists")
 
     def add_article(self, article):
-        """
-        Add a new article to the database with deduplication
-        Returns True if article was added, False if it already exists
-        """
+        """Add a new article to the database with deduplication"""
         try:
-            # Add timestamp if not present
-            if 'scraped_at' not in article:
-                article['scraped_at'] = datetime.now(timezone.utc).isoformat()
+            # Ensure scraped_at is a datetime object
+            if isinstance(article.get('scraped_at'), str):
+                article['scraped_at'] = datetime.fromisoformat(article['scraped_at'].replace('Z', '+00:00'))
+            elif not isinstance(article.get('scraped_at'), datetime):
+                article['scraped_at'] = datetime.now(timezone.utc)
             
-            # Insert the article
+            # Add to database
             result = self.collection.insert_one(article)
             print(f"✅ Added article: {article['title'][:50]}...")
-            return True
+            return result.inserted_id
             
         except DuplicateKeyError:
-            print(f"⚠️  Article already exists: {article['title'][:50]}...")
-            return False
-            
-        except PyMongoError as e:
-            print(f"❌ Database error adding article: {e}")
-            return False
-        
+            print(f"⚠️ Article already exists: {article['title'][:50]}...")
+            return None
         except Exception as e:
-            print(f"❌ Unexpected error adding article: {e}")
-            return False
-
+            print(f"❌ Error adding article: {e}")
+            raise
+    
     def get_articles(self, limit=None, ai_tool_type=None, sort_by_date=True):
-        """
-        Retrieve articles from the database
-        
-        Args:
-            limit: Maximum number of articles to return
-            ai_tool_type: Filter by AI tool type
-            sort_by_date: Sort by scraped_at date (newest first)
-        """
+        """Retrieve articles from the database"""
         try:
-            # Build query filter
-            query_filter = {}
-            if ai_tool_type and ai_tool_type != "All":
-                query_filter['type_of_ai_tool'] = ai_tool_type
-            
             # Build query
-            cursor = self.collection.find(query_filter)
+            query = {}
+            if ai_tool_type:
+                query['type_of_ai_tool'] = ai_tool_type
+            
+            # Build cursor
+            cursor = self.collection.find(query)
             
             # Sort by date if requested
             if sort_by_date:
-                cursor = cursor.sort("scraped_at", -1)  # -1 for descending (newest first)
+                cursor = cursor.sort('scraped_at', -1)
             
             # Apply limit
             if limit:
                 cursor = cursor.limit(limit)
             
-            return list(cursor)
+            # Convert to list
+            articles = list(cursor)
             
-        except PyMongoError as e:
-            print(f"❌ Database error retrieving articles: {e}")
-            return []
-        
+            # Convert datetime objects to ISO strings for JSON serialization
+            for article in articles:
+                if isinstance(article.get('scraped_at'), datetime):
+                    article['scraped_at'] = article['scraped_at'].isoformat()
+            
+            return articles
+            
         except Exception as e:
-            print(f"❌ Unexpected error retrieving articles: {e}")
-            return []
-
+            print(f"❌ Error retrieving articles: {e}")
+            raise
+    
     def get_article_count(self, ai_tool_type=None):
-        """Get total count of articles"""
+        """Get total number of articles"""
         try:
-            query_filter = {}
-            if ai_tool_type and ai_tool_type != "All":
-                query_filter['type_of_ai_tool'] = ai_tool_type
-                
-            return self.collection.count_documents(query_filter)
+            query = {}
+            if ai_tool_type:
+                query['type_of_ai_tool'] = ai_tool_type
             
-        except PyMongoError as e:
-            print(f"❌ Database error counting articles: {e}")
+            return self.collection.count_documents(query)
+            
+        except Exception as e:
+            print(f"❌ Error getting article count: {e}")
             return 0
-
+    
     def get_latest_scrape_time(self):
         """Get the timestamp of the most recent scrape"""
         try:
-            latest_article = self.collection.find().sort("scraped_at", -1).limit(1)
-            latest_article = list(latest_article)
+            latest_article = self.collection.find_one(
+                {},
+                sort=[('scraped_at', -1)]
+            )
             
             if latest_article:
-                return latest_article[0]['scraped_at']
-            else:
-                return None
-                
-        except PyMongoError as e:
-            print(f"❌ Database error getting latest scrape time: {e}")
-            return None
-
-    def get_ai_tool_types(self):
-        """Get all unique AI tool types in the database"""
-        try:
-            return self.collection.distinct("type_of_ai_tool")
+                scraped_at = latest_article['scraped_at']
+                if isinstance(scraped_at, datetime):
+                    return scraped_at.isoformat()
+                return scraped_at
             
-        except PyMongoError as e:
-            print(f"❌ Database error getting AI tool types: {e}")
+            return None
+            
+        except Exception as e:
+            print(f"❌ Error getting latest scrape time: {e}")
+            return None
+    
+    def get_ai_tool_types(self):
+        """Get all unique AI tool types"""
+        try:
+            return self.collection.distinct('type_of_ai_tool')
+        except Exception as e:
+            print(f"❌ Error getting AI tool types: {e}")
             return []
-
+    
     def delete_old_articles(self, days_to_keep=30):
         """Delete articles older than specified days"""
         try:
-            from datetime import timedelta
-            
             cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_to_keep)
-            cutoff_date_str = cutoff_date.isoformat()
             
             result = self.collection.delete_many({
-                "scraped_at": {"$lt": cutoff_date_str}
+                'scraped_at': {'$lt': cutoff_date}
             })
             
-            print(f"🗑️  Deleted {result.deleted_count} old articles")
+            print(f"🗑️ Deleted {result.deleted_count} old articles")
             return result.deleted_count
             
-        except PyMongoError as e:
-            print(f"❌ Database error deleting old articles: {e}")
+        except Exception as e:
+            print(f"❌ Error deleting old articles: {e}")
             return 0
-
+    
     def get_articles_by_date_range(self, start_date, end_date):
         """Get articles within a specific date range"""
         try:
-            query_filter = {
-                "scraped_at": {
-                    "$gte": start_date.isoformat(),
-                    "$lte": end_date.isoformat()
+            query = {
+                'scraped_at': {
+                    '$gte': start_date,
+                    '$lte': end_date
                 }
             }
             
-            cursor = self.collection.find(query_filter).sort("scraped_at", -1)
-            return list(cursor)
+            articles = list(self.collection.find(query).sort('scraped_at', -1))
             
-        except PyMongoError as e:
-            print(f"❌ Database error getting articles by date range: {e}")
-            return []
-
-    def close_connection(self):
-        """Close the database connection"""
-        try:
-            self.client.close()
-            print("✅ Database connection closed")
+            # Convert datetime objects to ISO strings
+            for article in articles:
+                if isinstance(article.get('scraped_at'), datetime):
+                    article['scraped_at'] = article['scraped_at'].isoformat()
+            
+            return articles
+            
         except Exception as e:
-            print(f"❌ Error closing database connection: {e}")
-
+            print(f"❌ Error getting articles by date range: {e}")
+            return []
+    
+    def close_connection(self):
+        """Close the MongoDB connection"""
+        if hasattr(self, 'client'):
+            self.client.close()
+            print("🔌 MongoDB connection closed")
+    
     def __enter__(self):
-        """Context manager entry"""
         return self
-
+    
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit"""
         self.close_connection()
 
 # Test function
