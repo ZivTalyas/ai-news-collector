@@ -8,15 +8,21 @@ import os
 import re
 import time
 import requests
+import sys
 from datetime import datetime, timezone
 from urllib.parse import urlparse, quote_plus
 from bs4 import BeautifulSoup
 from googlesearch import search
-from database import NewsDatabase
+from pathlib import Path
+
+# Add the parent directory to the path for imports
+sys.path.append(str(Path(__file__).parent.parent))
+
+from app.database import NewsDatabase
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from config folder
+load_dotenv(Path(__file__).parent.parent / 'config' / '.env')
 
 class AINewsScaper:
     def __init__(self):

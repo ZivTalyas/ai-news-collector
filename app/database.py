@@ -5,13 +5,15 @@ Handles storing and retrieving articles with deduplication
 """
 
 import os
+import sys
 from datetime import datetime, timezone
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError, PyMongoError
+from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from config folder
+load_dotenv(Path(__file__).parent.parent / 'config' / '.env')
 
 class NewsDatabase:
     def __init__(self):

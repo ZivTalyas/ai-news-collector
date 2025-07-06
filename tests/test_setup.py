@@ -6,7 +6,15 @@ Verifies that all components are working correctly
 
 import sys
 import os
+from pathlib import Path
+
+# Add the parent directory to the path for imports
+sys.path.append(str(Path(__file__).parent.parent))
+
 from dotenv import load_dotenv
+
+# Load environment variables from config folder
+load_dotenv(Path(__file__).parent.parent / 'config' / '.env')
 
 def test_imports():
     """Test that all required packages can be imported"""
@@ -30,12 +38,11 @@ def test_environment():
     """Test environment variables"""
     print("\n🔍 Testing environment variables...")
     
-    load_dotenv()
     mongo_uri = os.getenv('MONGO_URI')
     
     if not mongo_uri:
         print("❌ MONGO_URI not found in environment variables")
-        print("💡 Copy env_template.txt to .env and add your MongoDB connection string")
+        print("💡 Check config/.env file and add your MongoDB connection string")
         return False
     
     if "mongodb+srv://" not in mongo_uri:
@@ -50,7 +57,7 @@ def test_database_connection():
     print("\n🔍 Testing database connection...")
     
     try:
-        from database import NewsDatabase
+        from app.database import NewsDatabase
         db = NewsDatabase()
         count = db.get_article_count()
         print(f"✅ Database connection successful - {count} articles in database")
@@ -65,7 +72,7 @@ def test_scraper_basic():
     print("\n🔍 Testing scraper components...")
     
     try:
-        from scraper import AINewsScaper
+        from app.scraper import AINewsScaper
         scraper = AINewsScaper()
         
         # Test AI tool classification
@@ -83,11 +90,37 @@ def test_scraper_basic():
         print(f"❌ Scraper test failed: {e}")
         return False
 
+def test_project_structure():
+    """Test that the project structure is correct"""
+    print("\n🔍 Testing project structure...")
+    
+    required_files = [
+        'app/dashboard.py',
+        'app/database.py',
+        'app/scraper.py',
+        'static/dashboard.css',
+        'config/.env',
+        'requirements.txt'
+    ]
+    
+    missing_files = []
+    for file_path in required_files:
+        if not Path(file_path).exists():
+            missing_files.append(file_path)
+    
+    if missing_files:
+        print(f"❌ Missing files: {', '.join(missing_files)}")
+        return False
+    
+    print("✅ Project structure is correct")
+    return True
+
 def run_all_tests():
     """Run all tests and provide summary"""
     print("🤖 AI News Collector - Setup Test\n")
     
     tests = [
+        ("Project Structure", test_project_structure),
         ("Package Imports", test_imports),
         ("Environment Variables", test_environment),
         ("Database Connection", test_database_connection),
@@ -120,8 +153,8 @@ def run_all_tests():
     if passed == len(results):
         print("🎉 All tests passed! Your setup is ready.")
         print("\n🚀 Next steps:")
-        print("   1. Run the scraper: python scraper.py")
-        print("   2. Start the dashboard: streamlit run dashboard.py")
+        print("   1. Run the scraper: python3 app/scraper.py")
+        print("   2. Start the dashboard: python3 -m streamlit run app/dashboard.py")
     else:
         print("⚠️  Some tests failed. Please fix the issues above.")
     

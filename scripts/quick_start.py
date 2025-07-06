@@ -40,37 +40,77 @@ def setup_environment():
     """Set up environment variables"""
     print("\n🔧 Setting up environment variables...")
     
-    env_file = Path(".env")
-    template_file = Path("env_template.txt")
+    env_file = Path("config/.env")
+    config_dir = Path("config")
+    
+    # Create config directory if it doesn't exist
+    config_dir.mkdir(exist_ok=True)
     
     if env_file.exists():
-        print("✅ .env file already exists")
+        print("✅ config/.env file already exists")
         return True
     
-    if not template_file.exists():
-        print("❌ env_template.txt not found")
-        return False
-    
-    # Copy template to .env
+    # Create a basic .env template
     try:
-        with open(template_file, 'r') as src, open(env_file, 'w') as dst:
-            content = src.read()
-            dst.write(content)
+        env_content = """# MongoDB Atlas Connection String
+# Get this from your MongoDB Atlas dashboard
+MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/ai_news?retryWrites=true&w=majority
+
+# Optional: Additional configuration
+SCRAPER_MAX_ARTICLES=10
+SCRAPER_SLEEP_INTERVAL=2
+
+# Instructions:
+# 1. Replace the MONGO_URI with your actual MongoDB Atlas connection string
+# 2. Get your connection string from https://www.mongodb.com/atlas
+# 3. Update other values as needed
+"""
         
-        print("✅ Created .env file from template")
-        print("⚠️  IMPORTANT: Edit .env file with your MongoDB Atlas connection string!")
+        with open(env_file, 'w') as f:
+            f.write(env_content)
+        
+        print("✅ Created config/.env file from template")
+        print("⚠️  IMPORTANT: Edit config/.env file with your MongoDB Atlas connection string!")
         print("   Get it from: https://www.mongodb.com/atlas")
         return True
         
     except Exception as e:
-        print(f"❌ Failed to create .env file: {e}")
+        print(f"❌ Failed to create config/.env file: {e}")
         return False
+
+def check_project_structure():
+    """Verify the project structure is correct"""
+    print("\n📁 Checking project structure...")
+    
+    required_dirs = ['app', 'config', 'static', 'tests', 'scripts']
+    required_files = [
+        'app/dashboard.py',
+        'app/database.py', 
+        'app/scraper.py',
+        'static/dashboard.css',
+        'requirements.txt'
+    ]
+    
+    # Check directories
+    for dir_name in required_dirs:
+        if not Path(dir_name).exists():
+            print(f"❌ Missing directory: {dir_name}")
+            return False
+    
+    # Check files
+    for file_path in required_files:
+        if not Path(file_path).exists():
+            print(f"❌ Missing file: {file_path}")
+            return False
+    
+    print("✅ Project structure is correct")
+    return True
 
 def run_setup_test():
     """Run setup verification tests"""
     print("\n🧪 Running setup tests...")
     try:
-        result = subprocess.run([sys.executable, "test_setup.py"], 
+        result = subprocess.run([sys.executable, "tests/test_setup.py"], 
                               capture_output=True, text=True)
         
         print(result.stdout)
@@ -87,34 +127,46 @@ def show_next_steps():
     """Show next steps for the user"""
     print("\n🚀 NEXT STEPS:")
     print("="*40)
-    print("1. Edit .env file with your MongoDB Atlas connection string")
-    print("2. Test setup: python test_setup.py")
-    print("3. Run scraper: python scraper.py")
-    print("4. Start dashboard: streamlit run dashboard.py")
+    print("1. Edit config/.env file with your MongoDB Atlas connection string")
+    print("2. Test setup: python3 tests/test_setup.py")
+    print("3. Run scraper: python3 app/scraper.py")
+    print("4. Start dashboard: python3 -m streamlit run app/dashboard.py")
     print()
     print("📚 For detailed instructions, see README.md")
     print()
     print("🌐 Access dashboard at: http://localhost:8501")
     print("⏰ Set up GitHub Actions for daily automation")
+    print()
+    print("📁 Project Structure:")
+    print("   app/        - Main application code")
+    print("   config/     - Configuration files (.env)")
+    print("   static/     - CSS and assets")
+    print("   tests/      - Test files")
+    print("   scripts/    - Utility scripts")
 
 def main():
     """Main quick start workflow"""
     print_banner()
     
-    # Step 1: Check Python version
+    # Step 1: Check project structure
+    if not check_project_structure():
+        print("❌ Project structure is incorrect. Please check your installation.")
+        sys.exit(1)
+    
+    # Step 2: Check Python version
     if not check_python_version():
         sys.exit(1)
     
-    # Step 2: Install dependencies
+    # Step 3: Install dependencies
     if not install_dependencies():
-        print("💡 Try running: pip install -r requirements.txt")
+        print("💡 Try running: pip3 install -r requirements.txt")
         sys.exit(1)
     
-    # Step 3: Set up environment
+    # Step 4: Set up environment
     if not setup_environment():
         sys.exit(1)
     
-    # Step 4: Run tests (optional, may fail without MongoDB setup)
+    # Step 5: Run tests (optional, may fail without MongoDB setup)
     print("\n🔍 Would you like to run setup tests? (requires MongoDB setup)")
     response = input("Run tests now? (y/N): ").lower().strip()
     

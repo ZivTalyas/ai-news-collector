@@ -32,11 +32,14 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
-    - name: Run AI News Scraper
-      env:
-        MONGO_URI: ${{ secrets.MONGO_URI }}
+    - name: Create config directory and .env file
       run: |
-        python scraper.py
+        mkdir -p config
+        echo "MONGO_URI=${{ secrets.MONGO_URI }}" > config/.env
+    
+    - name: Run AI News Scraper
+      run: |
+        python app/scraper.py
     
     - name: Log scraper completion
       run: |
