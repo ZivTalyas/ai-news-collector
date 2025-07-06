@@ -52,17 +52,22 @@ def setup_environment():
     
     # Create a basic .env template
     try:
-        env_content = """# MongoDB Atlas Connection String
-# Get this from your MongoDB Atlas dashboard
-MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/ai_news?retryWrites=true&w=majority
+        env_content = """# PostgreSQL Database Connection String
+# Get this from your PostgreSQL provider (e.g., Neon, Supabase, AWS RDS, etc.)
+DATABASE_URL=postgresql://username:password@host:port/database_name?sslmode=require
 
 # Optional: Additional configuration
 SCRAPER_MAX_ARTICLES=10
 SCRAPER_SLEEP_INTERVAL=2
 
 # Instructions:
-# 1. Replace the MONGO_URI with your actual MongoDB Atlas connection string
-# 2. Get your connection string from https://www.mongodb.com/atlas
+# 1. Replace the DATABASE_URL with your actual PostgreSQL connection string
+# 2. Popular PostgreSQL providers:
+#    - Neon: https://neon.tech (free tier available)
+#    - Supabase: https://supabase.com (free tier available)
+#    - AWS RDS: https://aws.amazon.com/rds/
+#    - Google Cloud SQL: https://cloud.google.com/sql
+#    - Heroku Postgres: https://www.heroku.com/postgres
 # 3. Update other values as needed
 """
         
@@ -70,8 +75,10 @@ SCRAPER_SLEEP_INTERVAL=2
             f.write(env_content)
         
         print("✅ Created config/.env file from template")
-        print("⚠️  IMPORTANT: Edit config/.env file with your MongoDB Atlas connection string!")
-        print("   Get it from: https://www.mongodb.com/atlas")
+        print("⚠️  IMPORTANT: Edit config/.env file with your PostgreSQL connection string!")
+        print("   Popular free options:")
+        print("   - Neon: https://neon.tech")
+        print("   - Supabase: https://supabase.com")
         return True
         
     except Exception as e:
@@ -127,7 +134,7 @@ def show_next_steps():
     """Show next steps for the user"""
     print("\n🚀 NEXT STEPS:")
     print("="*40)
-    print("1. Edit config/.env file with your MongoDB Atlas connection string")
+    print("1. Edit config/.env file with your PostgreSQL connection string")
     print("2. Test setup: python3 tests/test_setup.py")
     print("3. Run scraper: python3 app/scraper.py")
     print("4. Start dashboard: python3 -m streamlit run app/dashboard.py")
@@ -136,6 +143,12 @@ def show_next_steps():
     print()
     print("🌐 Access dashboard at: http://localhost:8501")
     print("⏰ Set up GitHub Actions for daily automation")
+    print()
+    print("💾 Database Options:")
+    print("   Free PostgreSQL providers:")
+    print("   - Neon: https://neon.tech (recommended)")
+    print("   - Supabase: https://supabase.com")
+    print("   - ElephantSQL: https://www.elephantsql.com")
     print()
     print("📁 Project Structure:")
     print("   app/        - Main application code")
@@ -166,8 +179,8 @@ def main():
     if not setup_environment():
         sys.exit(1)
     
-    # Step 5: Run tests (optional, may fail without MongoDB setup)
-    print("\n🔍 Would you like to run setup tests? (requires MongoDB setup)")
+    # Step 5: Run tests (optional, may fail without PostgreSQL setup)
+    print("\n🔍 Would you like to run setup tests? (requires PostgreSQL setup)")
     response = input("Run tests now? (y/N): ").lower().strip()
     
     if response in ['y', 'yes']:

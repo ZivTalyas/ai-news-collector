@@ -3,7 +3,7 @@
 [![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-Streamlit_Cloud-FF4B4B?style=for-the-badge)](https://ai-news-collector-dvxmuud3qoqmgohkecvqks.streamlit.app/)
 [![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io)
-[![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://mongodb.com)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-336791?style=for-the-badge&logo=postgresql&logoColor=white)](https://postgresql.org)
 
 > 🔥 **[Try it live!](https://ai-news-collector-dvxmuud3qoqmgohkecvqks.streamlit.app/)** - See today's AI news automatically updated daily
 
@@ -32,7 +32,7 @@ A fully automated cloud-based system that collects, stores, and displays top AI 
 - **Deduplication**: Prevents duplicate articles using URL-based indexing
 - **Live Dashboard**: Beautiful Streamlit interface with external CSS styling
 - **Modular Architecture**: Clean separation of concerns with organized folder structure
-- **Cloud Deployment**: Ready for GitHub Actions, Streamlit Cloud, and MongoDB Atlas
+- **Cloud Deployment**: Ready for GitHub Actions, Streamlit Cloud, and PostgreSQL
 
 ## 🚀 **Live Demo & Deployment**
 
@@ -57,7 +57,7 @@ Your dashboard will be automatically updated daily by GitHub Actions!
 |-----------|------------|---------|
 | Scraper Bot | Python + BeautifulSoup + googlesearch-python | Extract data from web articles |
 | Scheduler | GitHub Actions | Run scraper daily automatically |
-| Database | MongoDB Atlas | Cloud-hosted NoSQL database |
+| Database | PostgreSQL | Reliable relational database |
 | Dashboard | Streamlit + Custom CSS | Live visualization of news entries |
 
 ## 📁 Project Structure
@@ -67,7 +67,7 @@ ai-news-collector/
 ├── 📱 app/                    # Main application code
 │   ├── __init__.py           # Package initialization
 │   ├── dashboard.py          # Streamlit dashboard
-│   ├── database.py           # MongoDB integration
+│   ├── database.py           # PostgreSQL integration
 │   └── scraper.py            # Google search scraper
 │
 ├── 🎨 static/                 # Static assets
@@ -112,22 +112,58 @@ python3 scripts/quick_start.py
 pip3 install -r requirements.txt
 
 # Create and configure environment
-cp config/.env.example config/.env
-# Edit config/.env with your MongoDB connection string
+mkdir -p config
+echo 'DATABASE_URL=postgresql://username:password@host:port/database_name?sslmode=require' > config/.env
+# Edit config/.env with your PostgreSQL connection string
 ```
 
-## 🗄️ Database Setup (MongoDB Atlas)
+## 🗄️ Database Setup (PostgreSQL)
 
-1. **Create MongoDB Atlas Account**: Go to [MongoDB Atlas](https://www.mongodb.com/atlas)
-2. **Create a Cluster**: Choose the free tier
-3. **Create Database User**: 
-   - Database Access → Add New Database User
-   - Choose password authentication
-4. **Whitelist IP Address**: 
-   - Network Access → Add IP Address → Allow Access from Anywhere (0.0.0.0/0)
-5. **Get Connection String**: 
-   - Clusters → Connect → Connect your application
-   - Copy the connection string and add to your `config/.env` file
+### Free PostgreSQL Providers (Recommended)
+
+1. **Neon** (Recommended - Best free tier): 
+   - Go to [neon.tech](https://neon.tech)
+   - Sign up and create a new project
+   - Copy the connection string
+   - Add to your `config/.env` file
+
+2. **Supabase** (Great alternative):
+   - Go to [supabase.com](https://supabase.com)
+   - Create a new project
+   - Go to Settings → Database
+   - Copy the connection string
+   - Add to your `config/.env` file
+
+### Local PostgreSQL Setup (Optional)
+
+```bash
+# Install PostgreSQL (macOS)
+brew install postgresql
+brew services start postgresql
+
+# Create database
+createdb ai_news
+
+# Connection string for local setup:
+# DATABASE_URL=postgresql://postgres:password@localhost:5432/ai_news
+```
+
+### Environment Configuration
+
+Create `config/.env` file:
+```bash
+# Replace with your actual PostgreSQL connection string
+DATABASE_URL=postgresql://username:password@host:port/database_name?sslmode=require
+
+# Examples:
+# Neon: postgresql://username:password@ep-xxx.us-east-1.aws.neon.tech/neondb?sslmode=require
+# Supabase: postgresql://postgres:password@db.xxx.supabase.co:5432/postgres
+# Local: postgresql://postgres:password@localhost:5432/ai_news
+
+# Optional scraper settings
+SCRAPER_MAX_ARTICLES=10
+SCRAPER_SLEEP_INTERVAL=2
+```
 
 ## 🚀 Usage
 
@@ -168,7 +204,7 @@ python3 -m streamlit run app/dashboard.py  # Start dashboard
 1. **Add Secrets to Repository**:
    - Go to your GitHub repository
    - Settings → Secrets and variables → Actions
-   - Add secret: `MONGO_URI` with your MongoDB connection string
+   - Add secret: `DATABASE_URL` with your PostgreSQL connection string
 
 2. **Enable Actions**:
    - The workflow is already configured in `.github/workflows/daily_scraper.yml`
@@ -184,9 +220,9 @@ python3 -m streamlit run app/dashboard.py  # Start dashboard
 
 2. **Add Secrets in Streamlit Cloud**:
    - In your Streamlit Cloud app settings
-   - Add `MONGO_URI` in the secrets section:
+   - Add `DATABASE_URL` in the secrets section:
    ```toml
-   MONGO_URI = "your_mongodb_connection_string"
+   DATABASE_URL = "postgresql://username:password@host:port/database_name?sslmode=require"
    ```
 
 ### 3. Alternative Deployment Options
@@ -199,150 +235,64 @@ npm install -g @railway/cli
 # Deploy
 railway login
 railway init
-railway add
-railway deploy
+railway up
 ```
 
-**Render (for dashboard):**
-- Connect your GitHub repository
-- Choose "Web Service"
-- Build command: `pip install -r requirements.txt`
-- Start command: `streamlit run app/dashboard.py --server.port $PORT`
-
-## 📊 Dashboard Features
-
-- **📰 Today's Headlines**: Prominently featured with special styling
-- **🔥 Breaking News**: Real-time badges for recent articles
-- **🔍 Advanced Filtering**: Filter by date range and AI tool type
-- **📈 Analytics**: Visual charts and statistics
-- **🎨 Beautiful Design**: External CSS with responsive layout
-- **🔄 Live Updates**: Auto-refresh every 5 minutes
-- **▶️ Manual Control**: Run scraper directly from dashboard
-
-## 🎯 AI Tool Categories
-
-The system automatically classifies articles into these categories:
-
-- **LLM**: Large Language Models (GPT, Claude, Gemini, etc.)
-- **Computer Vision**: Image recognition, object detection, visual AI
-- **Robotics**: Autonomous systems, drones, self-driving cars
-- **Machine Learning**: Neural networks, TensorFlow, PyTorch
-- **AI Tools**: Midjourney, DALL-E, Copilot, AI assistants
-- **General AI**: Artificial intelligence research and breakthroughs
+### 🎯 **Why PostgreSQL?**
+- **Better Cloud Compatibility**: No SSL/TLS issues with Streamlit Cloud
+- **Reliable & Mature**: Industry-standard relational database
+- **Great Free Tiers**: Neon and Supabase offer generous free plans
+- **Better Performance**: Optimized for cloud deployment scenarios
+- **SQL Familiarity**: Standard SQL queries and excellent tooling
 
 ## 🔧 Configuration
 
-### Environment Variables (`config/.env`)
+### Environment Variables
+- `DATABASE_URL`: PostgreSQL connection string (required)
+- `SCRAPER_MAX_ARTICLES`: Max articles per scrape session (default: 10)
+- `SCRAPER_SLEEP_INTERVAL`: Sleep between requests in seconds (default: 2)
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `MONGO_URI` | MongoDB Atlas connection string | Yes |
-| `SCRAPER_MAX_ARTICLES` | Maximum articles to scrape per run | No (default: 10) |
-| `SCRAPER_SLEEP_INTERVAL` | Sleep time between requests (seconds) | No (default: 2) |
-
-### Trusted News Sources
-
-The scraper focuses on these trusted AI news sources:
-- TechCrunch
-- VentureBeat  
-- The Verge
-- Ars Technica
-- Wired
-
-## 📅 Data Schema
-
-Each article is stored with the following structure:
-```json
-{
-  "title": "OpenAI Launches GPT-5",
-  "url": "https://example.com/openai-gpt5", 
-  "type_of_ai_tool": "LLM",
-  "scraped_at": "2025-01-06T08:00:00Z"
+### Adding New AI Categories
+Edit `app/scraper.py` to add new AI tool categories:
+```python
+self.ai_tool_keywords = {
+    'Your Category': ['keyword1', 'keyword2', 'keyword3'],
+    # ... existing categories
 }
 ```
 
-## 🎨 Code Organization
+## 📊 Dashboard Features
 
-### Clean Architecture
-- **Separation of Concerns**: Each module has a single responsibility
-- **External Styling**: CSS separated from Python code
-- **Modular Design**: Easy to extend and maintain
-- **Proper Imports**: Clean import structure with path management
-
-### Key Improvements
-- **External CSS**: Moved all styling to `static/dashboard.css`
-- **Folder Structure**: Organized code into logical directories
-- **Configuration Management**: Centralized config in `config/` folder
-- **Package Structure**: Proper Python package with `__init__.py`
-- **Enhanced Testing**: Comprehensive test suite with structure validation
-
-## 🔐 Security
-
-- Environment variables for sensitive data
-- MongoDB Atlas with proper authentication
-- GitHub Secrets for CI/CD
-- Rate limiting and respectful scraping
-- Proper gitignore for sensitive files
-
-## 🚦 Monitoring
-
-- Check GitHub Actions logs for scraper status
-- Monitor Streamlit Cloud dashboard for uptime
-- MongoDB Atlas provides database monitoring
-- Dashboard shows latest scrape timestamps
-- Comprehensive test suite for system validation
-
-## 🔄 Daily Workflow
-
-1. **8:00 AM UTC**: GitHub Actions triggers the scraper
-2. **Scraper**: Searches Google for recent AI news (up to 10 articles)
-3. **Processing**: Extracts titles, URLs, and classifies AI tool types
-4. **Storage**: Saves to MongoDB Atlas with deduplication
-5. **Dashboard**: Automatically displays new articles with today's focus
-
-## 🚀 Future Enhancements
-
-- **Email/Telegram Notifications**: Get notified of top daily stories
-- **Sentiment Analysis**: Analyze headline sentiment
-- **Twitter Integration**: Scrape trending AI topics from X/Twitter
-- **Advanced Filtering**: Keyword search and custom date ranges
-- **Export Features**: CSV/JSON export of articles
-- **Admin Panel**: Content management and configuration interface
+- **Today's Headlines**: Featured section for articles from today
+- **Smart Filtering**: Filter by date range, AI category, or custom terms
+- **Live Analytics**: Real-time stats and category breakdown charts
+- **Responsive Design**: Works on desktop, tablet, and mobile
+- **Auto-refresh**: Data updates every 5 minutes
+- **Manual Actions**: Refresh data or collect fresh news on demand
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch: `git checkout -b feature-name`
-3. Follow the existing code structure and organization
-4. Add tests for new features in `tests/`
-5. Update documentation as needed
-6. Commit changes: `git commit -am 'Add feature'`
-7. Push to branch: `git push origin feature-name`
-8. Create a Pull Request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 📞 Support
+## 🙏 Acknowledgments
 
-If you encounter any issues:
-
-1. Run the test suite: `python3 tests/test_setup.py`
-2. Check the [Issues](https://github.com/your-username/ai-news-collector/issues) page
-3. Verify your MongoDB Atlas connection
-4. Check GitHub Actions logs for scraper issues
-5. Ensure all files are in the correct folders
-
-### Common Issues
-
-- **Import Errors**: Ensure you're running commands from the project root
-- **Database Connection**: Check your `config/.env` file
-- **Missing Files**: Run `python3 tests/test_setup.py` to verify structure
-- **CSS Not Loading**: Ensure `static/dashboard.css` exists
+- Built with [Streamlit](https://streamlit.io/) for the beautiful dashboard
+- Powered by [PostgreSQL](https://postgresql.org) for reliable data storage
+- News sources: TechCrunch, VentureBeat, The Verge, Ars Technica, Wired
+- Deployed on [Streamlit Cloud](https://streamlit.io/cloud) and automated with GitHub Actions
 
 ---
 
-**Created by**: Ziv Talyas  
-**Date**: January 2025  
-**Version**: 2.0.0 (Refactored & Organized)
+⭐ **Star this repo** if you found it useful! 
+
+🐛 **Found a bug?** Open an issue and I'll fix it ASAP.
+
+💡 **Have a feature idea?** Submit a pull request or create an issue.

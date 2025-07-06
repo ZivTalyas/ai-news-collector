@@ -23,7 +23,7 @@ def test_imports():
     try:
         import requests
         import beautifulsoup4
-        import pymongo
+        import psycopg2
         import streamlit
         import googlesearch
         import pandas
@@ -38,22 +38,23 @@ def test_environment():
     """Test environment variables"""
     print("\n🔍 Testing environment variables...")
     
-    mongo_uri = os.getenv('MONGO_URI')
+    database_url = os.getenv('DATABASE_URL')
     
-    if not mongo_uri:
-        print("❌ MONGO_URI not found in environment variables")
-        print("💡 Check config/.env file and add your MongoDB connection string")
+    if not database_url:
+        print("❌ DATABASE_URL not found in environment variables")
+        print("💡 Check config/.env file and add your PostgreSQL connection string")
         return False
     
-    if "mongodb+srv://" not in mongo_uri:
-        print("⚠️  MONGO_URI doesn't look like a MongoDB Atlas connection string")
+    if "postgresql://" not in database_url:
+        print("⚠️  DATABASE_URL doesn't look like a PostgreSQL connection string")
+        print("💡 Should start with postgresql://")
         return False
     
     print("✅ Environment variables configured")
     return True
 
 def test_database_connection():
-    """Test MongoDB connection"""
+    """Test PostgreSQL connection"""
     print("\n🔍 Testing database connection...")
     
     try:
@@ -64,7 +65,7 @@ def test_database_connection():
         return True
     except Exception as e:
         print(f"❌ Database connection failed: {e}")
-        print("💡 Check your MONGO_URI and network connection")
+        print("💡 Check your DATABASE_URL and network connection")
         return False
 
 def test_scraper_basic():

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 AI News Collector Scraper Bot
-Searches Google for AI news articles and stores them in MongoDB
+Searches Google for AI news articles and stores them in PostgreSQL
 """
 
 import os
@@ -25,8 +25,8 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / 'config' / '.env')
 
 class AINewsScaper:
-    def __init__(self, mongo_uri_override=None):
-        self.db = NewsDatabase(mongo_uri_override=mongo_uri_override)
+    def __init__(self, database_url_override=None):
+        self.db = NewsDatabase(database_url_override=database_url_override)
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -47,9 +47,7 @@ class AINewsScaper:
         search_queries = [
             "AI news today",
             "artificial intelligence latest news",
-            "AI breakthrough 2024",
             "machine learning news",
-            "ChatGPT OpenAI news",
             "AI technology updates"
         ]
         
@@ -170,7 +168,8 @@ class AINewsScaper:
             # Store articles in database
             new_articles_count = 0
             for article in articles:
-                if self.db.add_article(article):
+                result = self.db.add_article(article)
+                if result:
                     new_articles_count += 1
                     
             print(f"✅ Successfully added {new_articles_count} new articles to database")
@@ -180,6 +179,13 @@ class AINewsScaper:
             print(f"❌ Error during scraping: {e}")
             raise
 
+# Test function
 if __name__ == "__main__":
-    scraper = AINewsScaper()
-    scraper.run_daily_scrape() 
+    # Test the scraper
+    try:
+        scraper = AINewsScaper()
+        scraper.run_daily_scrape()
+    except KeyboardInterrupt:
+        print("\n🛑 Scraping interrupted by user")
+    except Exception as e:
+        print(f"❌ Scraper test failed: {e}") 

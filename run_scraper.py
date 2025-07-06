@@ -20,7 +20,7 @@ def main():
     # Check if config/.env exists
     if not Path('config/.env').exists():
         print("❌ Error: config/.env not found")
-        print("Please create config/.env file with your MongoDB connection string")
+        print("Please create config/.env file with your PostgreSQL connection string")
         print("You can run: python3 scripts/quick_start.py")
         sys.exit(1)
     
