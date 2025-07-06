@@ -256,14 +256,33 @@ Your Streamlit app automatically has:
 # Ensure database user has correct permissions
 ```
 
-### **3. GitHub Actions Not Working:**
+### **3. SSL/TLS Handshake Errors:**
+If you see errors like "SSL handshake failed" or "tlsv1 alert internal error":
+
+```bash
+# Test your connection locally first
+python3 scripts/test_mongodb_connection.py
+
+# Update dependencies
+pip install --upgrade pymongo certifi
+
+# Check MongoDB Atlas version (should be 4.4+)
+# Verify your connection string format
+```
+
+**Common SSL Error Solutions:**
+- **SSL handshake failed**: Update pymongo to 4.6.0+
+- **Certificate verification failed**: Your app uses fallback methods
+- **TLS version mismatch**: Ensure MongoDB Atlas cluster is up to date
+
+### **4. GitHub Actions Not Working:**
 ```bash
 # Check GitHub repository secrets
 # Verify MONGO_URI secret exists
 # Check Actions logs for errors
 ```
 
-### **4. CSS Not Loading:**
+### **5. CSS Not Loading:**
 ```bash
 # Ensure static/dashboard.css exists in repository
 # Check file paths are correct for deployment

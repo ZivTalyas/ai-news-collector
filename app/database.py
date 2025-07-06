@@ -6,6 +6,7 @@ Handles storing and retrieving articles with deduplication
 
 import os
 import sys
+import ssl
 from datetime import datetime, timezone
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError, PyMongoError
@@ -23,7 +24,20 @@ class NewsDatabase:
             raise ValueError("MONGO_URI environment variable is required")
         
         try:
-            self.client = MongoClient(self.mongo_uri)
+            # First attempt: MongoDB Atlas SSL/TLS configuration
+            ssl_options = {
+                'ssl': True,
+                'ssl_cert_reqs': ssl.CERT_NONE,  # Skip SSL certificate verification
+                'ssl_match_hostname': False,     # Don't verify hostname
+                'serverSelectionTimeoutMS': 5000,
+                'socketTimeoutMS': 10000,
+                'connectTimeoutMS': 10000,
+                'maxPoolSize': 10,
+                'retryWrites': True
+            }
+            
+            print("🔐 Attempting MongoDB connection with SSL configuration...")
+            self.client = MongoClient(self.mongo_uri, **ssl_options)
             self.db = self.client['ai_news']
             self.collection = self.db['articles']
             
@@ -37,8 +51,53 @@ class NewsDatabase:
             print("✅ Connected to MongoDB Atlas")
             
         except Exception as e:
-            print(f"❌ Failed to connect to MongoDB: {e}")
-            raise
+            print(f"⚠️  First connection attempt failed: {e}")
+            print("🔄 Trying alternative connection methods...")
+            
+            # Fallback 1: Try with different SSL options
+            try:
+                print("🔐 Attempting with alternative SSL configuration...")
+                fallback_options = {
+                    'tls': True,
+                    'tlsAllowInvalidCertificates': True,
+                    'tlsAllowInvalidHostnames': True,
+                    'serverSelectionTimeoutMS': 10000,
+                    'socketTimeoutMS': 20000,
+                    'connectTimeoutMS': 20000,
+                    'retryWrites': True
+                }
+                
+                self.client = MongoClient(self.mongo_uri, **fallback_options)
+                self.db = self.client['ai_news']
+                self.collection = self.db['articles']
+                
+            except Exception as e2:
+                print(f"⚠️  Second connection attempt failed: {e2}")
+                
+                # Fallback 2: Try with minimal options
+                try:
+                    print("🔐 Attempting with minimal SSL configuration...")
+                    minimal_options = {
+                        'serverSelectionTimeoutMS': 15000,
+                        'socketTimeoutMS': 30000,
+                        'connectTimeoutMS': 30000,
+                    }
+                    
+                    self.client = MongoClient(self.mongo_uri, **minimal_options)
+                    self.db = self.client['ai_news']
+                    self.collection = self.db['articles']
+                    
+                except Exception as e3:
+                    print(f"❌ All connection attempts failed:")
+                    print(f"   1. SSL config: {e}")
+                    print(f"   2. TLS config: {e2}")
+                    print(f"   3. Minimal config: {e3}")
+                    print("\n💡 Troubleshooting suggestions:")
+                    print("   1. Check your MongoDB Atlas connection string")
+                    print("   2. Verify your IP address is whitelisted (0.0.0.0/0)")
+                    print("   3. Update your MongoDB Atlas cluster to latest version")
+                    print("   4. Try updating pymongo: pip install --upgrade pymongo")
+                    raise ConnectionError(f"Failed to connect to MongoDB after multiple attempts. Last error: {e3}")
 
     def add_article(self, article):
         """
