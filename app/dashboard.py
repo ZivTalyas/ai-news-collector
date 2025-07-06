@@ -261,49 +261,84 @@ def main():
         if st.button("🤖 Collect News", type="primary"):
             with st.spinner("Collecting fresh AI news..."):
                 try:
-                    import subprocess
-                    result = subprocess.run(['python3', 'app/scraper.py'], 
-                                          capture_output=True, text=True, timeout=300)
+                    # Import scraper directly instead of subprocess
+                    from app.scraper import AINewsScaper
                     
-                    if result.returncode == 0:
-                        st.success("✅ News collected successfully!")
-                        st.cache_data.clear()
-                        st.rerun()
-                    else:
-                        st.error("❌ Failed to collect news")
+                    # Create scraper instance and run
+                    scraper = AINewsScaper()
+                    scraper.run_daily_scrape()
+                    
+                    st.success("✅ News collected successfully!")
+                    st.cache_data.clear()
+                    st.rerun()
+                    
                 except Exception as e:
-                    st.error(f"❌ Error: {e}")
+                    st.error(f"❌ Collection failed: {str(e)}")
+                    # Show more detailed error for debugging
+                    st.error(f"Error details: {e}")
         
         st.markdown('</div>', unsafe_allow_html=True)
     
     # Main content
     articles = load_articles(selected_ai_tool, articles_limit, selected_date)
     
+    # Auto-fallback: if no articles for today, show recent articles
+    if not articles and selected_date == "Today":
+        st.info("📰 No articles found for today. Showing recent articles instead.")
+        articles = load_articles(selected_ai_tool, articles_limit, "Last 7 Days")
+        selected_date = "Last 7 Days"  # Update display text
+    
     if not articles:
-        # Empty state
-        st.markdown('''
-        <div class="empty-state">
-            <div class="empty-state-icon">📰</div>
-            <h3>No articles found</h3>
-            <p>Try adjusting your filters or collect fresh news</p>
-        </div>
-        ''', unsafe_allow_html=True)
+        # Check if database is completely empty
+        if total_articles == 0:
+            st.markdown('''
+            <div class="empty-state">
+                <div class="empty-state-icon">🚀</div>
+                <h3>Welcome to AI News Collector!</h3>
+                <p>Your database is empty. Let's collect some fresh AI news to get started.</p>
+            </div>
+            ''', unsafe_allow_html=True)
+            
+            # Auto-collect news on first load
+            if st.button("🚀 Get Started - Collect AI News", type="primary"):
+                with st.spinner("🔍 Collecting fresh AI news for you..."):
+                    try:
+                        from app.scraper import AINewsScaper
+                        scraper = AINewsScaper()
+                        scraper.run_daily_scrape()
+                        st.success("✅ News collected! Refreshing...")
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Collection failed: {str(e)}")
+                        st.error("You can try again or check your internet connection.")
+        else:
+            # Empty state for filtered results
+            st.markdown('''
+            <div class="empty-state">
+                <div class="empty-state-icon">📰</div>
+                <h3>No articles found</h3>
+                <p>Try adjusting your filters or collect fresh news</p>
+            </div>
+            ''', unsafe_allow_html=True)
         
         if st.button("▶️ Collect Fresh News", type="primary"):
             with st.spinner("🔍 Searching for AI news..."):
                 try:
-                    import subprocess
-                    result = subprocess.run(['python3', 'app/scraper.py'], 
-                                          capture_output=True, text=True, timeout=300)
+                    # Import scraper directly instead of subprocess
+                    from app.scraper import AINewsScaper
                     
-                    if result.returncode == 0:
-                        st.success("✅ News collected!")
-                        st.cache_data.clear()
-                        st.rerun()
-                    else:
-                        st.error("❌ Collection failed")
+                    # Create scraper instance and run
+                    scraper = AINewsScaper()
+                    scraper.run_daily_scrape()
+                    
+                    st.success("✅ News collected!")
+                    st.cache_data.clear()
+                    st.rerun()
+                    
                 except Exception as e:
-                    st.error(f"❌ Error: {e}")
+                    st.error(f"❌ Collection failed: {str(e)}")
+                    st.error(f"Error details: {e}")
     else:
         # Articles header
         filter_text = f"**{selected_date}**"
