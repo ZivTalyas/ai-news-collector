@@ -118,13 +118,6 @@ def load_stats():
         today_articles = db.get_articles_by_date_range(start_date, end_date)
         today_count = len(today_articles)
         
-        # Debug information (remove this in production)
-        if st.checkbox("🔍 Show Debug Info", value=False):
-            st.write(f"Debug: Found {total_articles} total articles, {today_count} today")
-            st.write(f"Database: PostgreSQL")
-            st.write(f"AI Tool Types: {ai_tool_types}")
-            st.write(f"Latest Scrape: {latest_scrape}")
-        
         return total_articles, ai_tool_types, latest_scrape, today_count
         
     except Exception as e:
@@ -286,6 +279,13 @@ def main():
         # Actions
         st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
         st.markdown('<h3 class="sidebar-title">🔄 Actions</h3>', unsafe_allow_html=True)
+        
+        # Debug information (optional)
+        if st.checkbox("🔍 Show Debug Info", value=False):
+            st.write(f"Debug: Found {total_articles} total articles, {today_count} today")
+            st.write(f"Database: PostgreSQL")
+            st.write(f"AI Tool Types: {ai_tool_types}")
+            st.write(f"Latest Scrape: {latest_scrape}")
         
         if st.button("🔄 Refresh Data", type="secondary"):
             st.cache_data.clear()
