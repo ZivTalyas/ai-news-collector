@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-MongoDB Database Integration for AI News Collector
+PostgreSQL Database Integration for AI News Collector
 Handles storing and retrieving articles with deduplication
 """
 
 import os
 import sys
-from datetime import datetime, timezone
-from pymongo import MongoClient
-from pymongo.errors import DuplicateKeyError, PyMongoError
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -16,102 +16,141 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / 'config' / '.env')
 
 class NewsDatabase:
-    def __init__(self, mongo_uri_override=None):
-        """Initialize MongoDB connection with modern TLS options"""
-        # Use override URI if provided (for Streamlit Cloud)
-        if mongo_uri_override:
-            self.mongo_uri = mongo_uri_override
+    def __init__(self, database_url_override=None):
+        """Initialize PostgreSQL connection"""
+        # Use override URL if provided (for Streamlit Cloud)
+        if database_url_override:
+            self.database_url = database_url_override
         else:
-            self.mongo_uri = os.getenv('MONGO_URI')
+            self.database_url = os.getenv('DATABASE_URL')
         
-        if not self.mongo_uri:
-            raise ValueError("MONGO_URI environment variable is required")
+        if not self.database_url:
+            raise ValueError("DATABASE_URL environment variable is required")
         
         try:
-            # Modern MongoDB connection with TLS settings for Streamlit Cloud
-            connection_options = {
-                'tls': True,
-                'tlsAllowInvalidCertificates': True,
-                'tlsAllowInvalidHostnames': True,
-                'serverSelectionTimeoutMS': 30000,
-                'socketTimeoutMS': 60000,
-                'connectTimeoutMS': 30000,
-                'maxPoolSize': 1,
-                'retryWrites': True,
-                'w': 'majority'
-            }
+            print("🔐 Connecting to PostgreSQL database...")
+            self.conn = psycopg2.connect(
+                self.database_url,
+                cursor_factory=RealDictCursor,
+                sslmode='require'
+            )
+            self.conn.autocommit = False
+            print("✅ Connected to PostgreSQL successfully")
             
-            print("🔐 Connecting to MongoDB Atlas with modern TLS options...")
-            self.client = MongoClient(self.mongo_uri, **connection_options)
-            self.db = self.client['ai_news']
-            self.collection = self.db['articles']
+            # Create tables and indexes
+            self._create_tables()
+            print("✅ Database tables and indexes ready")
             
-            # Test the connection
-            self.client.admin.command('ping')
-            print("✅ Connected to MongoDB Atlas successfully")
-            
-            # Create indexes for better performance and deduplication
-            try:
-                self.collection.create_index("url", unique=True)
-                self.collection.create_index("scraped_at")
-                self.collection.create_index("type_of_ai_tool")
-                print("✅ Database indexes created successfully")
-            except Exception as index_error:
-                print(f"⚠️ Could not create indexes: {index_error}")
-                
         except Exception as e:
-            print(f"❌ MongoDB connection failed: {e}")
-            raise Exception(f"Failed to connect to MongoDB Atlas from Streamlit Cloud.\n\nThis is likely due to SSL/TLS compatibility issues between Streamlit Cloud's \nPython environment and your MongoDB Atlas cluster.\n\nOriginal error: {str(e)}\n\nSolutions:\n1. Update your MongoDB Atlas cluster to the latest version\n2. Ensure your cluster uses TLS 1.2+\n3. Try a different MongoDB hosting provider\n4. Contact Streamlit Cloud support if the issue persists")
-
+            print(f"❌ PostgreSQL connection failed: {e}")
+            raise Exception(f"Failed to connect to PostgreSQL database.\n\nOriginal error: {str(e)}\n\nSolutions:\n1. Check your DATABASE_URL environment variable\n2. Ensure your PostgreSQL database is running and accessible\n3. Verify database credentials and permissions\n4. Check network connectivity to your database server")
+    
+    def _create_tables(self):
+        """Create necessary tables and indexes"""
+        try:
+            cursor = self.conn.cursor()
+            
+            # Create articles table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS articles (
+                    id SERIAL PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    url TEXT NOT NULL UNIQUE,
+                    type_of_ai_tool TEXT NOT NULL,
+                    scraped_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+                )
+            ''')
+            
+            # Create indexes for better performance
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_articles_scraped_at ON articles(scraped_at)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_articles_type_of_ai_tool ON articles(type_of_ai_tool)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_articles_url ON articles(url)')
+            
+            self.conn.commit()
+            
+        except Exception as e:
+            self.conn.rollback()
+            print(f"⚠️ Could not create tables: {e}")
+            raise
+    
     def add_article(self, article):
         """Add a new article to the database with deduplication"""
         try:
+            cursor = self.conn.cursor()
+            
             # Ensure scraped_at is a datetime object
             if isinstance(article.get('scraped_at'), str):
-                article['scraped_at'] = datetime.fromisoformat(article['scraped_at'].replace('Z', '+00:00'))
-            elif not isinstance(article.get('scraped_at'), datetime):
-                article['scraped_at'] = datetime.now(timezone.utc)
+                try:
+                    scraped_at = datetime.fromisoformat(article['scraped_at'].replace('Z', '+00:00'))
+                except ValueError:
+                    scraped_at = datetime.now(timezone.utc)
+            elif isinstance(article.get('scraped_at'), datetime):
+                scraped_at = article['scraped_at']
+            else:
+                scraped_at = datetime.now(timezone.utc)
             
-            # Add to database
-            result = self.collection.insert_one(article)
+            # Insert the article
+            cursor.execute('''
+                INSERT INTO articles (title, url, type_of_ai_tool, scraped_at)
+                VALUES (%s, %s, %s, %s)
+                RETURNING id
+            ''', (
+                article['title'],
+                article['url'],
+                article['type_of_ai_tool'],
+                scraped_at
+            ))
+            
+            result = cursor.fetchone()
+            self.conn.commit()
+            
             print(f"✅ Added article: {article['title'][:50]}...")
-            return result.inserted_id
+            return result['id']
             
-        except DuplicateKeyError:
+        except psycopg2.IntegrityError:
+            self.conn.rollback()
             print(f"⚠️ Article already exists: {article['title'][:50]}...")
             return None
         except Exception as e:
+            self.conn.rollback()
             print(f"❌ Error adding article: {e}")
             raise
     
     def get_articles(self, limit=None, ai_tool_type=None, sort_by_date=True):
         """Retrieve articles from the database"""
         try:
-            # Build query
-            query = {}
-            if ai_tool_type:
-                query['type_of_ai_tool'] = ai_tool_type
+            cursor = self.conn.cursor()
             
-            # Build cursor
-            cursor = self.collection.find(query)
+            # Build query
+            query = "SELECT * FROM articles"
+            params = []
+            
+            if ai_tool_type:
+                query += " WHERE type_of_ai_tool = %s"
+                params.append(ai_tool_type)
             
             # Sort by date if requested
             if sort_by_date:
-                cursor = cursor.sort('scraped_at', -1)
+                query += " ORDER BY scraped_at DESC"
             
             # Apply limit
             if limit:
-                cursor = cursor.limit(limit)
+                query += " LIMIT %s"
+                params.append(limit)
             
-            # Convert to list
-            articles = list(cursor)
+            cursor.execute(query, params)
+            articles = cursor.fetchall()
             
-            # Convert datetime objects to ISO strings for JSON serialization
+            # Convert to list of dictionaries and format datetime
+            result = []
             for article in articles:
-                if isinstance(article.get('scraped_at'), datetime):
-                    article['scraped_at'] = article['scraped_at'].isoformat()
+                article_dict = dict(article)
+                # Convert datetime to ISO string for JSON serialization
+                if isinstance(article_dict.get('scraped_at'), datetime):
+                    article_dict['scraped_at'] = article_dict['scraped_at'].isoformat()
+                result.append(article_dict)
             
-            return articles
+            return result
             
         except Exception as e:
             print(f"❌ Error retrieving articles: {e}")
@@ -120,11 +159,15 @@ class NewsDatabase:
     def get_article_count(self, ai_tool_type=None):
         """Get total number of articles"""
         try:
-            query = {}
-            if ai_tool_type:
-                query['type_of_ai_tool'] = ai_tool_type
+            cursor = self.conn.cursor()
             
-            return self.collection.count_documents(query)
+            if ai_tool_type:
+                cursor.execute('SELECT COUNT(*) FROM articles WHERE type_of_ai_tool = %s', (ai_tool_type,))
+            else:
+                cursor.execute('SELECT COUNT(*) FROM articles')
+            
+            result = cursor.fetchone()
+            return result[0] if result else 0
             
         except Exception as e:
             print(f"❌ Error getting article count: {e}")
@@ -133,13 +176,12 @@ class NewsDatabase:
     def get_latest_scrape_time(self):
         """Get the timestamp of the most recent scrape"""
         try:
-            latest_article = self.collection.find_one(
-                {},
-                sort=[('scraped_at', -1)]
-            )
+            cursor = self.conn.cursor()
+            cursor.execute('SELECT scraped_at FROM articles ORDER BY scraped_at DESC LIMIT 1')
+            result = cursor.fetchone()
             
-            if latest_article:
-                scraped_at = latest_article['scraped_at']
+            if result:
+                scraped_at = result['scraped_at']
                 if isinstance(scraped_at, datetime):
                     return scraped_at.isoformat()
                 return scraped_at
@@ -153,7 +195,11 @@ class NewsDatabase:
     def get_ai_tool_types(self):
         """Get all unique AI tool types"""
         try:
-            return self.collection.distinct('type_of_ai_tool')
+            cursor = self.conn.cursor()
+            cursor.execute('SELECT DISTINCT type_of_ai_tool FROM articles ORDER BY type_of_ai_tool')
+            results = cursor.fetchall()
+            return [row['type_of_ai_tool'] for row in results]
+            
         except Exception as e:
             print(f"❌ Error getting AI tool types: {e}")
             return []
@@ -161,47 +207,53 @@ class NewsDatabase:
     def delete_old_articles(self, days_to_keep=30):
         """Delete articles older than specified days"""
         try:
+            cursor = self.conn.cursor()
             cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_to_keep)
             
-            result = self.collection.delete_many({
-                'scraped_at': {'$lt': cutoff_date}
-            })
+            cursor.execute('DELETE FROM articles WHERE scraped_at < %s', (cutoff_date,))
+            deleted_count = cursor.rowcount
+            self.conn.commit()
             
-            print(f"🗑️ Deleted {result.deleted_count} old articles")
-            return result.deleted_count
+            print(f"🗑️ Deleted {deleted_count} old articles")
+            return deleted_count
             
         except Exception as e:
+            self.conn.rollback()
             print(f"❌ Error deleting old articles: {e}")
             return 0
     
     def get_articles_by_date_range(self, start_date, end_date):
         """Get articles within a specific date range"""
         try:
-            query = {
-                'scraped_at': {
-                    '$gte': start_date,
-                    '$lte': end_date
-                }
-            }
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                SELECT * FROM articles 
+                WHERE scraped_at >= %s AND scraped_at <= %s
+                ORDER BY scraped_at DESC
+            ''', (start_date, end_date))
             
-            articles = list(self.collection.find(query).sort('scraped_at', -1))
+            articles = cursor.fetchall()
             
-            # Convert datetime objects to ISO strings
+            # Convert to list of dictionaries and format datetime
+            result = []
             for article in articles:
-                if isinstance(article.get('scraped_at'), datetime):
-                    article['scraped_at'] = article['scraped_at'].isoformat()
+                article_dict = dict(article)
+                # Convert datetime to ISO string for JSON serialization
+                if isinstance(article_dict.get('scraped_at'), datetime):
+                    article_dict['scraped_at'] = article_dict['scraped_at'].isoformat()
+                result.append(article_dict)
             
-            return articles
+            return result
             
         except Exception as e:
             print(f"❌ Error getting articles by date range: {e}")
             return []
     
     def close_connection(self):
-        """Close the MongoDB connection"""
-        if hasattr(self, 'client'):
-            self.client.close()
-            print("🔌 MongoDB connection closed")
+        """Close the PostgreSQL connection"""
+        if hasattr(self, 'conn'):
+            self.conn.close()
+            print("🔌 PostgreSQL connection closed")
     
     def __enter__(self):
         return self

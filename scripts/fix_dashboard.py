@@ -87,7 +87,7 @@ def main():
     # Test database
     if not test_database():
         print("❌ Database connection failed!")
-        print("💡 Make sure your MONGO_URI is configured in config/.env")
+        print("💡 Make sure your DATABASE_URL is configured in config/.env")
         return
     
     print("\n✅ Database connection successful!")

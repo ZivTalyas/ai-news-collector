@@ -28,17 +28,17 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-def get_mongo_uri():
-    """Get MongoDB URI from environment variables or Streamlit secrets"""
+def get_database_url():
+    """Get PostgreSQL DATABASE_URL from environment variables or Streamlit secrets"""
     # Try Streamlit secrets first (for cloud deployment)
     try:
-        if hasattr(st, 'secrets') and 'MONGO_URI' in st.secrets:
-            return st.secrets['MONGO_URI']
+        if hasattr(st, 'secrets') and 'DATABASE_URL' in st.secrets:
+            return st.secrets['DATABASE_URL']
     except:
         pass
     
     # Fall back to environment variables (for local development)
-    return os.getenv('MONGO_URI')
+    return os.getenv('DATABASE_URL')
 
 def load_css():
     """Load custom CSS from external file"""
@@ -57,13 +57,13 @@ load_css()
 def load_articles(ai_tool_filter="All", limit=50, date_filter="All Time"):
     """Load articles from database with caching and date filtering"""
     try:
-        # Pass the MongoDB URI explicitly to the database
-        mongo_uri = get_mongo_uri()
-        if not mongo_uri:
-            st.error("❌ MongoDB connection string not found. Please configure MONGO_URI in Streamlit secrets.")
+        # Pass the PostgreSQL DATABASE_URL explicitly to the database
+        database_url = get_database_url()
+        if not database_url:
+            st.error("❌ PostgreSQL connection string not found. Please configure DATABASE_URL in Streamlit secrets.")
             return []
         
-        db = NewsDatabase(mongo_uri_override=mongo_uri)
+        db = NewsDatabase(database_url_override=database_url)
         
         if date_filter == "Today":
             today = datetime.now(timezone.utc).date()
@@ -101,12 +101,12 @@ def load_articles(ai_tool_filter="All", limit=50, date_filter="All Time"):
 def load_stats():
     """Load database statistics with caching"""
     try:
-        mongo_uri = get_mongo_uri()
-        if not mongo_uri:
-            st.error("❌ MongoDB connection string not found. Please configure MONGO_URI in Streamlit secrets.")
+        database_url = get_database_url()
+        if not database_url:
+            st.error("❌ PostgreSQL connection string not found. Please configure DATABASE_URL in Streamlit secrets.")
             return 0, [], None, 0
         
-        db = NewsDatabase(mongo_uri_override=mongo_uri)
+        db = NewsDatabase(database_url_override=database_url)
         total_articles = db.get_article_count()
         ai_tool_types = db.get_ai_tool_types()
         latest_scrape = db.get_latest_scrape_time()
@@ -121,7 +121,7 @@ def load_stats():
         # Debug information (remove this in production)
         if st.checkbox("🔍 Show Debug Info", value=False):
             st.write(f"Debug: Found {total_articles} total articles, {today_count} today")
-            st.write(f"Database: {db.db.name}, Collection: {db.collection.name}")
+            st.write(f"Database: PostgreSQL")
             st.write(f"AI Tool Types: {ai_tool_types}")
             st.write(f"Latest Scrape: {latest_scrape}")
         
@@ -303,8 +303,8 @@ def main():
                     from app.scraper import AINewsScaper
                     
                     # Create scraper instance and run
-                    mongo_uri = get_mongo_uri()
-                    scraper = AINewsScaper(mongo_uri_override=mongo_uri)
+                    database_url = get_database_url()
+                    scraper = AINewsScaper(database_url_override=database_url)
                     scraper.run_daily_scrape()
                     
                     st.success("✅ News collected successfully!")
@@ -343,8 +343,8 @@ def main():
                 with st.spinner("🔍 Collecting fresh AI news for you..."):
                     try:
                         from app.scraper import AINewsScaper
-                        mongo_uri = get_mongo_uri()
-                        scraper = AINewsScaper(mongo_uri_override=mongo_uri)
+                        database_url = get_database_url()
+                        scraper = AINewsScaper(database_url_override=database_url)
                         scraper.run_daily_scrape()
                         st.success("✅ News collected! Refreshing...")
                         st.cache_data.clear()
@@ -369,8 +369,8 @@ def main():
                     from app.scraper import AINewsScaper
                     
                     # Create scraper instance and run
-                    mongo_uri = get_mongo_uri()
-                    scraper = AINewsScaper(mongo_uri_override=mongo_uri)
+                    database_url = get_database_url()
+                    scraper = AINewsScaper(database_url_override=database_url)
                     scraper.run_daily_scrape()
                     
                     st.success("✅ News collected!")
@@ -451,30 +451,7 @@ def main():
     
     with col3:
         st.markdown("☁️ **Cloud-Powered**")
-        st.markdown("MongoDB Atlas + Streamlit")
+        st.markdown("PostgreSQL + Streamlit")
 
 if __name__ == "__main__":
-    # Check if MongoDB URI is configured
-    mongo_uri = get_mongo_uri()
-    if not mongo_uri:
-        st.markdown('''
-        <div class="alert alert-error">
-            <h4>❌ Database Configuration Missing</h4>
-            <p><strong>For Streamlit Cloud:</strong> Add <code>MONGO_URI</code> to your app secrets</p>
-            <p><strong>For local development:</strong> Add to <code>config/.env</code> file</p>
-            <p>Get your MongoDB connection string from <a href="https://cloud.mongodb.com" target="_blank">MongoDB Atlas</a></p>
-        </div>
-        ''', unsafe_allow_html=True)
-        st.stop()
-    
-    try:
-        main()
-    except Exception as e:
-        st.markdown(f'''
-        <div class="alert alert-error">
-            <h4>❌ Application Error</h4>
-            <p>{str(e)}</p>
-            <p>Please check your database connection and try again.</p>
-            <p><strong>For Streamlit Cloud users:</strong> Make sure your MONGO_URI is properly configured in app secrets</p>
-        </div>
-        ''', unsafe_allow_html=True) 
+    main() 
