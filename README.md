@@ -1,5 +1,28 @@
 # 🤖 AI News Collector
 
+[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-Streamlit_Cloud-FF4B4B?style=for-the-badge)](https://ai-news-collector-dvxmuud3qoqmgohkecvqks.streamlit.app/)
+[![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io)
+[![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://mongodb.com)
+
+> 🔥 **[Try it live!](https://ai-news-collector-dvxmuud3qoqmgohkecvqks.streamlit.app/)** - See today's AI news automatically updated daily
+
+## 📸 Dashboard Preview
+
+<!-- Add your screenshot here -->
+![AI News Collector Dashboard](./docs/dashboard-screenshot.png)
+*Modern AI news dashboard with today's headlines, smart filtering, and real-time updates*
+
+### ✨ **What You'll Find in the Live Demo**
+- 🔥 **Today's AI Headlines** - Fresh articles updated every morning
+- 🏷️ **Smart Categories** - LLM, Computer Vision, Robotics, Machine Learning, AI Tools
+- 📊 **Live Analytics** - Article counts, category breakdowns, and trends  
+- 🎨 **Beautiful Design** - Modern, responsive interface with dark mode support
+- 🔍 **Advanced Filtering** - Filter by date, category, or search terms
+- ⚡ **Real-time Updates** - Auto-refresh every 5 minutes
+
+---
+
 A fully automated cloud-based system that collects, stores, and displays top AI news articles daily. The system features a clean, organized codebase with modular architecture, external CSS styling, and proper separation of concerns.
 
 ## 🌟 Features
@@ -11,9 +34,15 @@ A fully automated cloud-based system that collects, stores, and displays top AI 
 - **Modular Architecture**: Clean separation of concerns with organized folder structure
 - **Cloud Deployment**: Ready for GitHub Actions, Streamlit Cloud, and MongoDB Atlas
 
-## 🚀 **Quick Deploy for Public Access**
+## 🚀 **Live Demo & Deployment**
 
-Want to share your AI News Collector with others? **See the complete [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)** for step-by-step instructions on deploying to:
+### 🌐 **Try the Live Dashboard**
+**👉 [ai-news-collector-dvxmuud3qoqmgohkecvqks.streamlit.app](https://ai-news-collector-dvxmuud3qoqmgohkecvqks.streamlit.app/)** 
+
+*Updates daily at 8:00 AM UTC with fresh AI news articles*
+
+### 📋 **Deploy Your Own**
+Want to create your own AI News Collector? **See the complete [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)** for step-by-step instructions on deploying to:
 
 - **Streamlit Community Cloud** (Recommended - Free & Easy)
 - **Railway** (Modern platform with GitHub integration)

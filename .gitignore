@@ -74,4 +74,13 @@ Thumbs.db
 
 # Config files with secrets
 config.ini
-secrets.txt 
+secrets.txt
+
+# Documentation - keep structure but allow specific files
+# Allow documentation images and assets
+!docs/
+!docs/*.png
+!docs/*.jpg
+!docs/*.gif
+!docs/*.svg
+!docs/*.md 
