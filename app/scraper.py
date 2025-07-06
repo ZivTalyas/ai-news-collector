@@ -25,8 +25,8 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / 'config' / '.env')
 
 class AINewsScaper:
-    def __init__(self):
-        self.db = NewsDatabase()
+    def __init__(self, mongo_uri_override=None):
+        self.db = NewsDatabase(mongo_uri_override=mongo_uri_override)
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
