@@ -258,6 +258,11 @@ def main():
             st.cache_data.clear()
             st.rerun()
         
+        if st.button("🗑️ Clear Cache", help="Clear cached data if dashboard shows wrong info"):
+            st.cache_data.clear()
+            st.success("Cache cleared! Refreshing...")
+            st.rerun()
+        
         if st.button("🤖 Collect News", type="primary"):
             with st.spinner("Collecting fresh AI news..."):
                 try:
