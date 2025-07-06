@@ -17,7 +17,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from app.database import NewsDatabase
 from dotenv import load_dotenv
 
-# Load environment variables from config folder
+# Load environment variables from config folder (for local development)
 load_dotenv(Path(__file__).parent.parent / 'config' / '.env')
 
 # Page configuration
@@ -27,6 +27,18 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+def get_mongo_uri():
+    """Get MongoDB URI from environment variables or Streamlit secrets"""
+    # Try Streamlit secrets first (for cloud deployment)
+    try:
+        if hasattr(st, 'secrets') and 'MONGO_URI' in st.secrets:
+            return st.secrets['MONGO_URI']
+    except:
+        pass
+    
+    # Fall back to environment variables (for local development)
+    return os.getenv('MONGO_URI')
 
 def load_css():
     """Load custom CSS from external file"""
@@ -45,7 +57,13 @@ load_css()
 def load_articles(ai_tool_filter="All", limit=50, date_filter="All Time"):
     """Load articles from database with caching and date filtering"""
     try:
-        db = NewsDatabase()
+        # Pass the MongoDB URI explicitly to the database
+        mongo_uri = get_mongo_uri()
+        if not mongo_uri:
+            st.error("❌ MongoDB connection string not found. Please configure MONGO_URI in Streamlit secrets.")
+            return []
+        
+        db = NewsDatabase(mongo_uri_override=mongo_uri)
         
         if date_filter == "Today":
             today = datetime.now(timezone.utc).date()
@@ -75,13 +93,20 @@ def load_articles(ai_tool_filter="All", limit=50, date_filter="All Time"):
         
     except Exception as e:
         st.error(f"Error loading articles: {e}")
+        # Show more detailed error for debugging
+        st.error(f"Detailed error: {str(e)}")
         return []
 
 @st.cache_data(ttl=300)
 def load_stats():
     """Load database statistics with caching"""
     try:
-        db = NewsDatabase()
+        mongo_uri = get_mongo_uri()
+        if not mongo_uri:
+            st.error("❌ MongoDB connection string not found. Please configure MONGO_URI in Streamlit secrets.")
+            return 0, [], None, 0
+        
+        db = NewsDatabase(mongo_uri_override=mongo_uri)
         total_articles = db.get_article_count()
         ai_tool_types = db.get_ai_tool_types()
         latest_scrape = db.get_latest_scrape_time()
@@ -93,10 +118,18 @@ def load_stats():
         today_articles = db.get_articles_by_date_range(start_date, end_date)
         today_count = len(today_articles)
         
+        # Debug information (remove this in production)
+        if st.checkbox("🔍 Show Debug Info", value=False):
+            st.write(f"Debug: Found {total_articles} total articles, {today_count} today")
+            st.write(f"Database: {db.db.name}, Collection: {db.collection.name}")
+            st.write(f"AI Tool Types: {ai_tool_types}")
+            st.write(f"Latest Scrape: {latest_scrape}")
+        
         return total_articles, ai_tool_types, latest_scrape, today_count
         
     except Exception as e:
         st.error(f"Error loading stats: {e}")
+        st.error(f"Detailed error: {str(e)}")
         return 0, [], None, 0
 
 def format_time_ago(iso_string):
@@ -270,7 +303,8 @@ def main():
                     from app.scraper import AINewsScaper
                     
                     # Create scraper instance and run
-                    scraper = AINewsScaper()
+                    mongo_uri = get_mongo_uri()
+                    scraper = AINewsScaper(mongo_uri_override=mongo_uri)
                     scraper.run_daily_scrape()
                     
                     st.success("✅ News collected successfully!")
@@ -309,7 +343,8 @@ def main():
                 with st.spinner("🔍 Collecting fresh AI news for you..."):
                     try:
                         from app.scraper import AINewsScaper
-                        scraper = AINewsScaper()
+                        mongo_uri = get_mongo_uri()
+                        scraper = AINewsScaper(mongo_uri_override=mongo_uri)
                         scraper.run_daily_scrape()
                         st.success("✅ News collected! Refreshing...")
                         st.cache_data.clear()
@@ -334,7 +369,8 @@ def main():
                     from app.scraper import AINewsScaper
                     
                     # Create scraper instance and run
-                    scraper = AINewsScaper()
+                    mongo_uri = get_mongo_uri()
+                    scraper = AINewsScaper(mongo_uri_override=mongo_uri)
                     scraper.run_daily_scrape()
                     
                     st.success("✅ News collected!")
@@ -419,12 +455,14 @@ def main():
 
 if __name__ == "__main__":
     # Check if MongoDB URI is configured
-    if not os.getenv('MONGO_URI'):
+    mongo_uri = get_mongo_uri()
+    if not mongo_uri:
         st.markdown('''
         <div class="alert alert-error">
             <h4>❌ Database Configuration Missing</h4>
-            <p>Please set up your MongoDB Atlas connection string in <code>config/.env</code></p>
-            <p>Add: <code>MONGO_URI='your_mongodb_connection_string'</code></p>
+            <p><strong>For Streamlit Cloud:</strong> Add <code>MONGO_URI</code> to your app secrets</p>
+            <p><strong>For local development:</strong> Add to <code>config/.env</code> file</p>
+            <p>Get your MongoDB connection string from <a href="https://cloud.mongodb.com" target="_blank">MongoDB Atlas</a></p>
         </div>
         ''', unsafe_allow_html=True)
         st.stop()
@@ -437,5 +475,6 @@ if __name__ == "__main__":
             <h4>❌ Application Error</h4>
             <p>{str(e)}</p>
             <p>Please check your database connection and try again.</p>
+            <p><strong>For Streamlit Cloud users:</strong> Make sure your MONGO_URI is properly configured in app secrets</p>
         </div>
         ''', unsafe_allow_html=True) 

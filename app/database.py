@@ -17,9 +17,14 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / 'config' / '.env')
 
 class NewsDatabase:
-    def __init__(self):
+    def __init__(self, mongo_uri_override=None):
         """Initialize MongoDB connection"""
-        self.mongo_uri = os.getenv('MONGO_URI')
+        # Use override URI if provided (for Streamlit Cloud)
+        if mongo_uri_override:
+            self.mongo_uri = mongo_uri_override
+        else:
+            self.mongo_uri = os.getenv('MONGO_URI')
+        
         if not self.mongo_uri:
             raise ValueError("MONGO_URI environment variable is required")
         
@@ -71,6 +76,10 @@ class NewsDatabase:
                 self.db = self.client['ai_news']
                 self.collection = self.db['articles']
                 
+                # Test the connection
+                self.client.admin.command('ping')
+                print("✅ Connected to MongoDB Atlas (fallback method)")
+                
             except Exception as e2:
                 print(f"⚠️  Second connection attempt failed: {e2}")
                 
@@ -86,6 +95,10 @@ class NewsDatabase:
                     self.client = MongoClient(self.mongo_uri, **minimal_options)
                     self.db = self.client['ai_news']
                     self.collection = self.db['articles']
+                    
+                    # Test the connection
+                    self.client.admin.command('ping')
+                    print("✅ Connected to MongoDB Atlas (minimal configuration)")
                     
                 except Exception as e3:
                     print(f"❌ All connection attempts failed:")
