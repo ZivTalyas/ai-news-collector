@@ -106,8 +106,35 @@ class AINewsScaper:
                 
         return articles[:max_results]
 
+    def is_article_url(self, url):
+        """Check if URL looks like an individual article (not a category/tag page)"""
+        # Skip URLs that are clearly not individual articles
+        skip_patterns = [
+            '/tag/', '/category/', '/page/', '/archive/', '/latest/',
+            '/topics/', '/section/', '/author/', '/search/', '/feed/',
+            '?page=', '&page=', '/page-', '/p/', '/recent/',
+            '/all-posts', '/news-archive', '/blog-archive'
+        ]
+        
+        url_lower = url.lower()
+        for pattern in skip_patterns:
+            if pattern in url_lower:
+                return False
+        
+        # URL should look like an article (has some content after domain)
+        path_parts = url.split('/')
+        if len(path_parts) < 4:  # e.g., https://domain.com/article-title
+            return False
+            
+        return True
+
     def extract_article_info(self, url):
         """Extract title and classify AI tool type from an article URL"""
+        # First check if this looks like an individual article URL
+        if not self.is_article_url(url):
+            print(f"⚠️ Skipping non-article URL: {url}")
+            return None
+            
         try:
             response = self.session.get(url, timeout=10)
             response.raise_for_status()
@@ -127,6 +154,11 @@ class AINewsScaper:
             
             # Skip if title is too short or doesn't seem related to AI
             if len(title) < 10:
+                return None
+                
+            # Skip if title indicates it's a listing/category page
+            if any(indicator in title.lower() for indicator in ['latest news', 'all posts', 'archive', 'category', 'tag']):
+                print(f"⚠️ Skipping category page: {title[:50]}...")
                 return None
                 
             # Check if article is AI-related
