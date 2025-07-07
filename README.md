@@ -9,8 +9,7 @@
 
 ## 📸 Dashboard Preview
 
-<!-- Add your screenshot here -->
-![AI News Collector Dashboard](./docs/dashboard-screenshot.png)
+![AI News Collector Dashboard](media/demo.jpg)
 *Modern AI news dashboard with today's headlines, smart filtering, and real-time updates*
 
 ### ✨ **What You'll Find in the Live Demo**
