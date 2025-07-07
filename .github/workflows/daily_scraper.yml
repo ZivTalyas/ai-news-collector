@@ -9,6 +9,7 @@ on:
 jobs:
   scrape_ai_news:
     runs-on: ubuntu-latest
+    environment: Neon
     
     steps:
     - name: Checkout repository
@@ -36,10 +37,10 @@ jobs:
       run: |
         if [ -z "${{ secrets.DATABASE_URL }}" ]; then
           echo "❌ DATABASE_URL secret is not set!"
-          echo "💡 Please add DATABASE_URL to your GitHub repository secrets"
+          echo "💡 Please check DATABASE_URL in your 'Neon' environment variables"
           exit 1
         else
-          echo "✅ DATABASE_URL secret is configured"
+          echo "✅ DATABASE_URL is configured in Neon environment"
         fi
     
     - name: Test Database Connection
