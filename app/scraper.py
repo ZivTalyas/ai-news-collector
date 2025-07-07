@@ -21,12 +21,31 @@ sys.path.append(str(Path(__file__).parent.parent))
 from app.database import NewsDatabase
 from dotenv import load_dotenv
 
-# Load environment variables from config folder
-load_dotenv(Path(__file__).parent.parent / 'config' / '.env')
+# Load environment variables from config folder (if available)
+try:
+    load_dotenv(Path(__file__).parent.parent / 'config' / '.env')
+except Exception:
+    pass  # .env file might not exist in production/GitHub Actions
 
 class AINewsScaper:
     def __init__(self, database_url_override=None):
-        self.db = NewsDatabase(database_url_override=database_url_override)
+        # Get database URL from multiple sources
+        if database_url_override:
+            db_url = database_url_override
+        else:
+            # Try to get from environment variable (GitHub Actions, production)
+            db_url = os.getenv('DATABASE_URL')
+            
+            # If not found, show helpful error message
+            if not db_url:
+                print("❌ DATABASE_URL environment variable is required")
+                print("💡 Solutions:")
+                print("   1. Set DATABASE_URL in your environment")
+                print("   2. Add DATABASE_URL to your .env file in config/")
+                print("   3. Pass database_url_override when creating AINewsScaper")
+                raise ValueError("DATABASE_URL environment variable is required")
+        
+        self.db = NewsDatabase(database_url_override=db_url)
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -183,9 +202,31 @@ class AINewsScaper:
 if __name__ == "__main__":
     # Test the scraper
     try:
+        print("🚀 Starting AI News Scraper...")
+        
+        # Check if we're in GitHub Actions
+        if os.getenv('GITHUB_ACTIONS'):
+            print("🔧 Running in GitHub Actions environment")
+            
+        # Check if DATABASE_URL is available
+        db_url = os.getenv('DATABASE_URL')
+        if not db_url:
+            print("❌ DATABASE_URL environment variable not found")
+            print("💡 Make sure to set DATABASE_URL in:")
+            print("   - GitHub Actions secrets (for CI/CD)")
+            print("   - Your local .env file (for local testing)")
+            print("   - Environment variables (for production)")
+            sys.exit(1)
+        
+        print("✅ Database URL found, starting scraper...")
         scraper = AINewsScaper()
         scraper.run_daily_scrape()
+        print("✅ Scraper completed successfully!")
+        
     except KeyboardInterrupt:
         print("\n🛑 Scraping interrupted by user")
     except Exception as e:
-        print(f"❌ Scraper test failed: {e}") 
+        print(f"❌ Scraper failed: {e}")
+        import traceback
+        print(f"📋 Full error: {traceback.format_exc()}")
+        sys.exit(1) 
