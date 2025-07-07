@@ -191,7 +191,7 @@ class NewsDatabase:
                 cursor.execute('SELECT COUNT(*) FROM articles')
             
             result = cursor.fetchone()
-            return result[0] if result else 0
+            return result['count'] if result else 0
             
         except Exception as e:
             print(f"❌ Error getting article count: {e}")
