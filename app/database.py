@@ -27,6 +27,30 @@ class NewsDatabase:
         if not self.database_url:
             raise ValueError("DATABASE_URL environment variable is required")
         
+        # Debug: Check DATABASE_URL format (mask sensitive parts)
+        if os.getenv('GITHUB_ACTIONS'):
+            # In GitHub Actions, show first/last parts for debugging
+            url_len = len(self.database_url)
+            if url_len > 20:
+                debug_url = self.database_url[:15] + "***" + self.database_url[-10:]
+                print(f"🔍 DATABASE_URL format: {debug_url}")
+                print(f"🔍 URL length: {url_len}")
+                print(f"🔍 Starts with postgresql://: {self.database_url.startswith('postgresql://')}")
+                print(f"🔍 Contains sslmode=require: {'sslmode=require' in self.database_url}")
+            else:
+                print(f"🔍 DATABASE_URL too short: {url_len} chars")
+        
+        # Clean up the URL (remove extra quotes if present)
+        self.database_url = self.database_url.strip().strip("'\"")
+        
+        # Ensure proper format
+        if not self.database_url.startswith('postgresql://'):
+            print(f"⚠️ DATABASE_URL doesn't start with postgresql://")
+            print(f"⚠️ Current start: {self.database_url[:20]}...")
+            if self.database_url.startswith('postgres://'):
+                print("🔧 Converting postgres:// to postgresql://")
+                self.database_url = self.database_url.replace('postgres://', 'postgresql://', 1)
+        
         try:
             print("🔐 Connecting to PostgreSQL database...")
             self.conn = psycopg2.connect(
