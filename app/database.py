@@ -16,6 +16,9 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / 'config' / '.env')
 
 class NewsDatabase:
+    # Configuration constants
+    MAX_ARTICLES = 100  # Maximum number of articles to keep in database
+    
     def __init__(self, database_url_override=None):
         """Initialize PostgreSQL connection"""
         # Use override URL if provided (for Streamlit Cloud)
@@ -97,8 +100,49 @@ class NewsDatabase:
             print(f"⚠️ Could not create tables: {e}")
             raise
     
+    def _maintain_article_limit(self, max_articles=None):
+        """Maintain maximum number of articles by deleting oldest ones"""
+        if max_articles is None:
+            max_articles = self.MAX_ARTICLES
+            
+        try:
+            cursor = self.conn.cursor()
+            
+            # Check current article count
+            cursor.execute('SELECT COUNT(*) FROM articles')
+            result = cursor.fetchone()
+            current_count = result['count'] if result else 0
+            
+            if current_count <= max_articles:
+                return  # No cleanup needed
+            
+            # Calculate how many articles to delete
+            articles_to_delete = current_count - max_articles
+            
+            # Delete the oldest articles
+            cursor.execute('''
+                DELETE FROM articles 
+                WHERE id IN (
+                    SELECT id FROM articles 
+                    ORDER BY scraped_at ASC 
+                    LIMIT %s
+                )
+            ''', (articles_to_delete,))
+            
+            deleted_count = cursor.rowcount
+            self.conn.commit()
+            
+            if deleted_count > 0:
+                print(f"🗑️ Deleted {deleted_count} oldest articles to maintain {max_articles} article limit")
+                print(f"📊 Database now has {current_count - deleted_count} articles")
+            
+        except Exception as e:
+            self.conn.rollback()
+            print(f"❌ Error maintaining article limit: {e}")
+            # Don't raise - this is a cleanup operation, shouldn't break the main flow
+    
     def add_article(self, article):
-        """Add a new article to the database with deduplication"""
+        """Add a new article to the database with deduplication and automatic cleanup"""
         try:
             cursor = self.conn.cursor()
             
@@ -129,6 +173,10 @@ class NewsDatabase:
             self.conn.commit()
             
             print(f"✅ Added article: {article['title'][:50]}...")
+            
+            # Automatically maintain article limit
+            self._maintain_article_limit(self.MAX_ARTICLES)
+            
             return result['id']
             
         except psycopg2.IntegrityError:
@@ -228,6 +276,14 @@ class NewsDatabase:
             print(f"❌ Error getting AI tool types: {e}")
             return []
     
+    def cleanup_database(self, max_articles=None):
+        """Manually trigger database cleanup to maintain article limit"""
+        if max_articles is None:
+            max_articles = self.MAX_ARTICLES
+        print(f"🧹 Running manual database cleanup (max {max_articles} articles)...")
+        self._maintain_article_limit(max_articles)
+        return self.get_article_count()
+    
     def delete_old_articles(self, days_to_keep=30):
         """Delete articles older than specified days"""
         try:
@@ -238,7 +294,11 @@ class NewsDatabase:
             deleted_count = cursor.rowcount
             self.conn.commit()
             
-            print(f"🗑️ Deleted {deleted_count} old articles")
+            print(f"🗑️ Deleted {deleted_count} articles older than {days_to_keep} days")
+            
+            # After deleting by date, also maintain the article limit
+            self._maintain_article_limit(self.MAX_ARTICLES)
+            
             return deleted_count
             
         except Exception as e:
